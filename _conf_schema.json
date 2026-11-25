@@ -1,0 +1,27 @@
+{
+  "api_base_url": {
+    "description": "VoxCPM2 OpenAI 兼容接口地址（填到 /v1 为止，例如 https://xxxx.trycloudflare.com/v1）",
+    "type": "string",
+    "default": "https://your-tunnel.trycloudflare.com/v1"
+  },
+  "api_key": {
+    "description": "API Key（自建 Colab 接口可随便填）",
+    "type": "string",
+    "default": "sk-voxcpm2"
+  },
+  "model": {
+    "description": "模型名称",
+    "type": "string",
+    "default": "voxcpm2"
+  },
+  "voice": {
+    "description": "音色标识",
+    "type": "string",
+    "default": "default"
+  },
+  "timeout": {
+    "description": "请求超时时间（秒）",
+    "type": "int",
+    "default": 60
+  }
+}

@@ -1,0 +1,6 @@
+name: astrbot_plugin_voxcpm_tts
+desc: 将基于 Google Colab 部署的 VoxCPM2 语音克隆模型（FastAPI + cloudflared OpenAI 兼容接口）接入 AstrBot，支持 QQ 指令调用 API 合成语音及热更新临时隧道地址
+help: 使用 /vox <文本> 合成克隆语音；使用 /vox_url <新BaseURL> 热更新 Colab 隧道地址
+version: v1.0.0
+author: liumouzs
+repo: https://github.com/liumouzs/astrbot_plugin_voxcpm_tts

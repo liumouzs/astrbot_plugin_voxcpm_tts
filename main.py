@@ -1,5 +1,6 @@
 import os
 import time
+import asyncio
 import tempfile
 import aiohttp
 from astrbot.api.event import filter, AstrMessageEvent
@@ -12,7 +13,7 @@ import astrbot.api.message_components as Comp
     "astrbot_plugin_voxcpm_tts",
     "liumouzs",
     "将 Colab 部署的 VoxCPM2 语音克隆 API 接入 AstrBot",
-    "1.0.0",
+    "1.1.0",
     "https://github.com/liumouzs/astrbot_plugin_voxcpm_tts",
 )
 class VoxCPMTTSPlugin(Star):
@@ -36,6 +37,40 @@ class VoxCPMTTSPlugin(Star):
         self.config["api_base_url"] = new_url
         self.config.save_config()
         yield event.plain_result(f"✅ VoxCPM2 接口地址已更新为：\n{new_url}")
+
+    def _get_timeout_seconds(self) -> int:
+        try:
+            return int(self.config.get("timeout", 180))
+        except (TypeError, ValueError):
+            return 180
+
+    @filter.command("vox_timeout")
+    async def set_vox_timeout(self, event: AstrMessageEvent, seconds: str = ""):
+        """热更新语音合成超时时间（秒），用法：/vox_timeout 300（填 0 表示不限制推理等待时间）"""
+        raw = seconds.strip()
+        if not raw:
+            cur = self._get_timeout_seconds()
+            desc = "不限制（0）" if cur <= 0 else f"{cur} 秒"
+            yield event.plain_result(
+                f"当前语音合成超时时间为：{desc}\n"
+                "用法：/vox_timeout <秒数>（例如 /vox_timeout 300，填 0 表示不限制超时）"
+            )
+            return
+
+        try:
+            val = int(raw)
+            if val < 0:
+                raise ValueError("negative")
+        except ValueError:
+            yield event.plain_result("请输入大于等于 0 的整数秒数，例如：/vox_timeout 300（填 0 表示不限制超时）")
+            return
+
+        self.config["timeout"] = val
+        self.config.save_config()
+        if val == 0:
+            yield event.plain_result("✅ VoxCPM2 语音合成超时时间已设为：不限制（0）")
+        else:
+            yield event.plain_result(f"✅ VoxCPM2 语音合成超时时间已更新为：{val} 秒")
 
     @filter.command("vox")
     async def vox_tts(self, event: AstrMessageEvent):
@@ -65,7 +100,15 @@ class VoxCPMTTSPlugin(Star):
             "input": text,
             "response_format": "wav",
         }
-        timeout = aiohttp.ClientTimeout(total=int(self.config.get("timeout", 60)))
+        timeout_sec = self._get_timeout_seconds()
+        if timeout_sec <= 0:
+            timeout = aiohttp.ClientTimeout(total=None, connect=15, sock_read=None)
+        else:
+            timeout = aiohttp.ClientTimeout(
+                total=timeout_sec,
+                connect=min(15, timeout_sec),
+                sock_read=timeout_sec,
+            )
 
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -82,6 +125,12 @@ class VoxCPMTTSPlugin(Star):
                         f.write(audio_bytes)
 
             yield event.chain_result([Comp.Record.fromFileSystem(wav_path)])
+        except asyncio.TimeoutError:
+            logger.error(f"VoxCPM2 语音合成超时（当前限制 {timeout_sec} 秒）")
+            yield event.plain_result(
+                f"❌ 语音合成超时（当前限制 {timeout_sec} 秒）。\n"
+                "长文本生成耗时较长，可在 AstrBot 插件配置中调大 timeout（填 0 表示不限制），或发送 /vox_timeout 300 调整。"
+            )
         except Exception as e:
             logger.error(f"VoxCPM2 语音合成异常: {e}")
             yield event.plain_result(f"❌ 请求异常：{e}")

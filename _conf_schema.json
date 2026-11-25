@@ -20,8 +20,9 @@
     "default": "default"
   },
   "timeout": {
-    "description": "请求超时时间（秒）",
+    "description": "语音合成请求超时时间（秒）",
+    "hint": "转换长文本耗时较长，建议设为 120~300 秒；设为 0 表示不限制推理等待时间（仅保留 15 秒连接超时）",
     "type": "int",
-    "default": 60
+    "default": 180
   }
 }

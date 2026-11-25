@@ -14,6 +14,7 @@
 
 - `/vox <文本>`：调用远程 VoxCPM2 API 合成 48kHz 克隆语音并发送为 QQ 语音条。
 - `/vox_url <新地址>`：热更新并持久化保存 Colab 新的 `trycloudflare.com` 接口地址（自动补全 `/v1` 后缀）。
+- `/vox_timeout <秒数>`：查看或热更新语音合成超时时间（填 `0` 表示不限制推理等待时间，适合超长文本合成）。
 
 ## 安装方式
 
@@ -33,7 +34,7 @@ https://github.com/liumouzs/astrbot_plugin_voxcpm_tts
 | `api_key` | string | `sk-voxcpm2` | 请求鉴权 Key（自建 Colab 接口可任意填写） |
 | `model` | string | `voxcpm2` | 请求的模型名称 |
 | `voice` | string | `default` | 音色标识 |
-| `timeout` | int | `60` | HTTP 请求超时时间（秒） |
+| `timeout` | int | `180` | 语音合成请求超时时间（秒）。长文本建议设为 `120~300`，填 `0` 表示不限制推理等待超时（仅保留 15 秒连接超时） |
 
 ## 注意事项
 

@@ -1,30 +1,38 @@
 # astrbot_plugin_voxcpm_tts
 
-将基于 **Google Colab** 云端 GPU 部署的 **`openbmb/VoxCPM2`** 语音克隆模型接入 **AstrBot**，通过 OpenAI 兼容 TTS API 实现在 QQ 中直接调用并发送克隆语音条。
+将基于 **Google Colab** 云端 GPU 部署的 **`openbmb/VoxCPM2`** 语音克隆模型接入 **AstrBot**，通过 OpenAI 兼容 `/v1/audio/speech` 接口在 QQ 中直接合成并发送 48kHz 克隆语音条，支持固定云盘音色持久化、QQ 内热更新临时隧道地址及长文本超时控制。
 
-## 工作原理
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/liumouzs/astrbot_plugin_voxcpm_tts/blob/main/colab/VoxCPM2_AstrBot_Server.ipynb)
 
-1. **云端模型推理（Google Colab）**：在 Google Colab GPU 环境中部署 `openbmb/VoxCPM2` 语音克隆服务，使用 FastAPI 封装 OpenAI 兼容接口：
-   - `POST {api_base_url}/audio/speech`：接收 JSON 请求体（`model`、`voice`、`input`、`response_format: "wav"`），返回 `audio/wav` 二进制音频流。
-   - `GET {api_base_url}/models`：提供模型列表与服务可用性探测。
-2. **公网隧道穿透（cloudflared）**：通过 `cloudflared` 将 Colab 本地 FastAPI 服务暴露为临时公网 HTTPS 地址（`*.trycloudflare.com`）。
-3. **AstrBot 插件调用**：用户在 QQ 发送 `/vox <文本>` 后，插件异步请求远程 `/v1/audio/speech` 接口获取 WAV 音频，落盘临时文件后以 QQ 语音条形式发送；当 Colab 重连 GPU 导致 `trycloudflare.com` 域名变更时，可通过 `/vox_url <新地址>` 在 QQ 内直接热更新并持久化保存，无需反复登录 AstrBot 后台修改配置。
+## 1. 启动 Colab 服务端
 
-## 功能指令
+1. 点击上方 **Open in Colab** 按钮打开 `colab/VoxCPM2_AstrBot_Server.ipynb`，连接 **GPU**（推荐 T4 或 L4）。
+2. **首次使用**：运行「单元格 0」，上传 4~9 秒干净参考音频并写入对应文字稿，系统会自动持久化保存到 Google Drive 的 `VoxCPM2_Cache/`。
+3. **每次重连 GPU**：按顺序运行 **单元格 1 → 单元格 2 → 单元格 3**，复制最后打印出的 `https://xxxx.trycloudflare.com/v1` 地址。
 
-- `/vox <文本>`：调用远程 VoxCPM2 API 合成 48kHz 克隆语音并发送为 QQ 语音条。
-- `/vox_url <新地址>`：热更新并持久化保存 Colab 新的 `trycloudflare.com` 接口地址（自动补全 `/v1` 后缀）。
-- `/vox_timeout <秒数>`：查看或热更新语音合成超时时间（填 `0` 表示不限制推理等待时间，适合超长文本合成）。
+## 2. 工作原理
 
-## 安装方式
+- **云端模型推理（Google Colab）**：在 Colab GPU 中加载 `openbmb/VoxCPM2` 并缓存在本地高速盘，通过 FastAPI 暴露 OpenAI 兼容接口（`POST /v1/audio/speech` 与 `GET /v1/models`）。
+- **公网隧道穿透（cloudflared）**：通过 `cloudflared` 将本地 FastAPI 服务暴露为临时公网 HTTPS 地址（`*.trycloudflare.com`）。
+- **AstrBot 插件调用**：用户在 QQ 发送 `/vox <文本>` 后，插件异步请求远程 `/v1/audio/speech` 获取 WAV 音频并发送为 QQ 语音条；Colab 重连域名变化时，直接用 `/vox_url <新地址>` 在 QQ 内热更新并持久化保存。
 
-在 **AstrBot WebUI -> 插件管理 -> 通过 Git 仓库安装** 中填入本仓库地址：
+## 3. 安装 AstrBot 插件
+
+在 **AstrBot WebUI → 插件管理 → 通过 Git 仓库安装** 中填入本仓库地址：
 
 ```text
 https://github.com/liumouzs/astrbot_plugin_voxcpm_tts
 ```
 
-## 配置项说明
+## 4. 指令说明
+
+- `/vox_url <新BaseURL>`：在 QQ 内直接热更新 Colab 隧道地址（例如 `/vox_url https://xxxx.trycloudflare.com/v1`，自动补全 `/v1`）。
+- `/vox <文本>`：调用远程 VoxCPM2 合成 48kHz 克隆语音并发送为 QQ 语音条。
+- `/vox_timeout <秒数>`：查看或热更新语音合成超时时间（填 `0` 表示不限制推理等待时间，适合超长文本合成）。
+
+> 提示：你也可以直接把该 `/v1` 地址填入 AstrBot 自带的 **OpenAI TTS** 服务商，实现全自动语音回复。
+
+## 5. 配置项说明
 
 可在 AstrBot WebUI 插件配置中设置以下参数：
 
@@ -36,7 +44,7 @@ https://github.com/liumouzs/astrbot_plugin_voxcpm_tts
 | `voice` | string | `default` | 音色标识 |
 | `timeout` | int | `180` | 语音合成请求超时时间（秒）。长文本建议设为 `120~300`，填 `0` 表示不限制推理等待超时（仅保留 15 秒连接超时） |
 
-## 注意事项
+## 6. 注意事项
 
 - 请确保 QQ 协议端（如 NapCat / Lagrange / LLOneBot）宿主机已安装 `ffmpeg`，以支持 `.wav` 自动转码为 QQ 所需的 `.silk` 语音格式。
-- Google Colab 免费 GPU 实例存在闲置回收机制，重连后仅需复制新的 `trycloudflare.com` 地址并在 QQ 发送 `/vox_url <新地址>` 即可恢复使用。
+- Google Colab 免费 GPU 实例存在闲置回收机制，重连后依次运行单元格 1~3，复制新的 `trycloudflare.com` 地址并在 QQ 发送 `/vox_url <新地址>` 即可恢复使用。
